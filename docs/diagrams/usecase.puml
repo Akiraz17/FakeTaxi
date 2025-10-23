@@ -1,0 +1,83 @@
+@startuml
+' Диаграмма вариантов использования
+left to right direction
+skinparam shadowing false
+skinparam defaultFontName "Arial"
+
+actor "Пассажир" as Passenger
+actor "Водитель" as Driver
+actor "Оператор поддержки" as Support
+actor "Администратор" as Admin
+
+' Пассажир
+usecase UC_P_Login        as "Вход в систему"
+usecase UC_P_ViewTariffs  as "Просмотр и выбор тарифов"
+usecase UC_P_PlaceOrder   as "Оформление заказа"
+usecase UC_P_Contact      as "Связь с водителем"
+usecase UC_P_TrackOrder   as "Отслеживание статуса заказа"
+usecase UC_P_CancelTrip   as "Отмена поездки"
+usecase UC_P_Rating       as "Оставить оценку"
+usecase UC_P_TrackPay     as "Отслеживание оплаты"
+usecase UC_P_ToSupport    as "Обращение в поддержку"
+
+Passenger --> UC_P_Login
+Passenger --> UC_P_ViewTariffs
+Passenger --> UC_P_PlaceOrder
+Passenger --> UC_P_Contact
+Passenger --> UC_P_TrackOrder
+Passenger --> UC_P_CancelTrip
+Passenger --> UC_P_Rating
+Passenger --> UC_P_TrackPay
+Passenger --> UC_P_ToSupport
+
+' Водитель
+usecase UC_D_Login        as "Вход в систему"
+usecase UC_D_Take         as "Взятие заказа"
+usecase UC_D_Confirm      as "Подтверждение заказа"
+usecase UC_D_Status       as "Отметка статуса заказа"
+usecase UC_D_ToSupport    as "Обращение в поддержку"
+
+Driver --> UC_D_Login
+Driver --> UC_D_Take
+Driver --> UC_D_Confirm
+Driver --> UC_D_Status
+Driver --> UC_D_ToSupport
+
+' Поддержка
+usecase UC_S_Open         as "Открыть обращение"
+usecase UC_S_Analyze      as "Проанализировать обращение"
+usecase UC_S_Refund       as "Возврат денег"
+usecase UC_S_CancelOrder  as "Отмена заказа"
+usecase UC_S_Close        as "Закрытие тикета"
+usecase UC_S_Escalate     as "Обращение к администратору"
+usecase UC_S_HelpUser     as "Помощь пользователю"
+
+Support --> UC_S_Open
+Support --> UC_S_Analyze
+Support --> UC_S_Refund
+Support --> UC_S_CancelOrder
+Support --> UC_S_Close
+Support --> UC_S_Escalate
+Support --> UC_S_HelpUser
+
+' Администратор
+usecase UC_A_Login        as "Вход в систему"
+usecase UC_A_Fleet        as "Управление автопарком"
+usecase UC_A_Tariffs      as "Управление тарифами"
+usecase UC_A_Prices       as "Корректировка цен"
+usecase UC_A_Users        as "Управляет пользователями системы"
+
+Admin --> UC_A_Login
+Admin --> UC_A_Fleet
+Admin --> UC_A_Tariffs
+Admin --> UC_A_Prices
+Admin --> UC_A_Users
+
+' Взаимосвязи
+UC_P_PlaceOrder ..> UC_P_TrackPay : <<include>>
+UC_P_ToSupport ..> UC_S_Open      : <<include>>
+UC_S_Analyze    ..> UC_S_Escalate : <<extend>>
+UC_S_Refund     ..> UC_S_Close    : <<include>>
+UC_S_CancelOrder ..> UC_S_Close   : <<include>>
+
+@enduml

@@ -10,6 +10,6 @@
 
 ## Ссылки на диаграммы:
 
-[ER-диаграмма]: https://imgur.com/a/HQ5zE9Q
-[UseCase]: https://imgur.com/a/f0TTUFN
-[Блок схемы для всех актёров]: https://imgur.com/a/qqy0T0X
+[ER-диаграмма](https://imgur.com/a/HQ5zE9Q)
+[UseCase](https://imgur.com/a/f0TTUFN)
+[Блок схемы для всех актёров](https://imgur.com/a/qqy0T0X)

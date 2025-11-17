@@ -1,0 +1,6 @@
+ride_id,passenger_id,passenger_name,passenger_phone,passenger_email,passenger_rating,driver_id,driver_name,driver_phone,driver_email,driver_rating,driver_balance,car_model,car_number,support_id,ticket,support_name,support_phone,support_email,support_status,support_balance,start_point,end_point,price,created_at,completed_at,ride_status
+1,1,Иван Иванов,+79001231239,ivan2007@gmail.com,5.0,1,Андрей Аллахов,+78005343123,io123@mail.ru,5.0,0.0,Lada Granta,A666УЕ152,,,,,,,,Кащенко 5,Проспект Ленина 68,6969.0,2025-11-17 20:14:22,,pending
+2,2,Пётр Петров,+79321102401,petrushka@gmail.com,5.0,1,Андрей Аллахов,+78005343123,io123@mail.ru,5.0,0.0,Lada Granta,A666УЕ152,,,,,,,,Казанское Шоссе 12к6,Фантастика,320.12,2025-11-17 20:14:22,,completed
+3,2,Пётр Петров,+79321102401,petrushka@gmail.com,5.0,2,Алексей Лаков,+78499999000,fioqwepwqr@outlook.com,5.0,524.0,BMW M5,В004КО777,,,,,,,,Минина 24к1,CyberX,490.0,2025-11-17 20:14:22,,cancelled
+4,3,Матвей Смирнов,+78992101333,smirnov2005@mail.ru,5.0,1,Андрей Аллахов,+78005343123,io123@mail.ru,5.0,0.0,Lada Granta,A666УЕ152,,,,,,,,Парк Культуры,Улица Белинского,2310.0,2025-11-17 20:14:22,,pending
+5,3,Матвей Смирнов,+78992101333,smirnov2005@mail.ru,5.0,2,Алексей Лаков,+78499999000,fioqwepwqr@outlook.com,5.0,524.0,BMW M5,В004КО777,,,,,,,,КиберPride,Метро Горьковская,324.0,2025-11-17 20:14:22,,in_progress

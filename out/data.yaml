@@ -1,0 +1,170 @@
+- passenger:
+    id: 1
+    passenger_full_name: Иван Иванов
+    passenger_phone: '+79001231239'
+    passenger_email: ivan2007@gmail.com
+    passenger_rating: 5.0
+  driver:
+    id: 1
+    driver_full_name: Андрей Аллахов
+    driver_phone: '+78005343123'
+    driver_email: io123@mail.ru
+    driver_rating: 5.0
+    balance: 0.0
+    car:
+      car_model: Lada Granta
+      car_number: A666УЕ152
+  support:
+    id: null
+    ticket:
+      passenger_id: 1
+      driver_id: 1
+    support_full_name: null
+    support_phone: null
+    support_email: null
+    support_status: null
+    balance: null
+  route:
+    start: Кащенко 5
+    end: Проспект Ленина 68
+  price: 6969.0
+  time:
+    created_at: '2025-11-17 20:14:22'
+    completed_at: null
+  status: pending
+- passenger:
+    id: 2
+    passenger_full_name: Пётр Петров
+    passenger_phone: '+79321102401'
+    passenger_email: petrushka@gmail.com
+    passenger_rating: 5.0
+  driver:
+    id: 1
+    driver_full_name: Андрей Аллахов
+    driver_phone: '+78005343123'
+    driver_email: io123@mail.ru
+    driver_rating: 5.0
+    balance: 0.0
+    car:
+      car_model: Lada Granta
+      car_number: A666УЕ152
+  support:
+    id: null
+    ticket:
+      passenger_id: 2
+      driver_id: 1
+    support_full_name: null
+    support_phone: null
+    support_email: null
+    support_status: null
+    balance: null
+  route:
+    start: Казанское Шоссе 12к6
+    end: Фантастика
+  price: 320.12
+  time:
+    created_at: '2025-11-17 20:14:22'
+    completed_at: null
+  status: completed
+- passenger:
+    id: 2
+    passenger_full_name: Пётр Петров
+    passenger_phone: '+79321102401'
+    passenger_email: petrushka@gmail.com
+    passenger_rating: 5.0
+  driver:
+    id: 2
+    driver_full_name: Алексей Лаков
+    driver_phone: '+78499999000'
+    driver_email: fioqwepwqr@outlook.com
+    driver_rating: 5.0
+    balance: 524.0
+    car:
+      car_model: BMW M5
+      car_number: В004КО777
+  support:
+    id: null
+    ticket:
+      passenger_id: 2
+      driver_id: 2
+    support_full_name: null
+    support_phone: null
+    support_email: null
+    support_status: null
+    balance: null
+  route:
+    start: Минина 24к1
+    end: CyberX
+  price: 490.0
+  time:
+    created_at: '2025-11-17 20:14:22'
+    completed_at: null
+  status: cancelled
+- passenger:
+    id: 3
+    passenger_full_name: Матвей Смирнов
+    passenger_phone: '+78992101333'
+    passenger_email: smirnov2005@mail.ru
+    passenger_rating: 5.0
+  driver:
+    id: 1
+    driver_full_name: Андрей Аллахов
+    driver_phone: '+78005343123'
+    driver_email: io123@mail.ru
+    driver_rating: 5.0
+    balance: 0.0
+    car:
+      car_model: Lada Granta
+      car_number: A666УЕ152
+  support:
+    id: null
+    ticket:
+      passenger_id: 3
+      driver_id: 1
+    support_full_name: null
+    support_phone: null
+    support_email: null
+    support_status: null
+    balance: null
+  route:
+    start: Парк Культуры
+    end: Улица Белинского
+  price: 2310.0
+  time:
+    created_at: '2025-11-17 20:14:22'
+    completed_at: null
+  status: pending
+- passenger:
+    id: 3
+    passenger_full_name: Матвей Смирнов
+    passenger_phone: '+78992101333'
+    passenger_email: smirnov2005@mail.ru
+    passenger_rating: 5.0
+  driver:
+    id: 2
+    driver_full_name: Алексей Лаков
+    driver_phone: '+78499999000'
+    driver_email: fioqwepwqr@outlook.com
+    driver_rating: 5.0
+    balance: 524.0
+    car:
+      car_model: BMW M5
+      car_number: В004КО777
+  support:
+    id: null
+    ticket:
+      passenger_id: 3
+      driver_id: 2
+    support_full_name: null
+    support_phone: null
+    support_email: null
+    support_status: null
+    balance: null
+  route:
+    start: КиберPride
+    end: Метро Горьковская
+  price: 324.0
+  time:
+    created_at: '2025-11-17 20:14:22'
+    completed_at: null
+  status: in_progress

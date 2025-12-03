@@ -1,765 +1,781 @@
 import sqlite3
 import re
-from typing import Optional, List, Dict, Any
 
-class TaxiDatabase:
-    def __init__(self, db_path='database.db'):
-        self.conn = sqlite3.connect(db_path)
-        self.conn.row_factory = sqlite3.Row
-        self.cursor = self.conn.cursor()
-        self.create_tables()
+def create_connection():
+    conn = sqlite3.connect('database.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def create_tables(conn):
+    cursor = conn.cursor()
     
-    def create_tables(self):
-        self.cursor.execute('''
-        CREATE TABLE IF NOT EXISTS passengers (
-            passenger_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            full_name TEXT NOT NULL,
-            phone TEXT NOT NULL,
-            email TEXT,
-            rating REAL DEFAULT 5.0
-        )
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS passengers (
+        passenger_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        full_name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        email TEXT,
+        rating REAL DEFAULT 5.0
+    )
+    ''')
+    
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS drivers (
+        driver_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        full_name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        email TEXT,
+        rating REAL DEFAULT 5.0,
+        car_model TEXT,
+        car_number TEXT
+    )
+    ''')
+    
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS rides (
+        ride_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        passenger_id INTEGER,
+        driver_id INTEGER,
+        pickup_location TEXT,
+        dropoff_location TEXT,
+        price REAL,
+        status TEXT DEFAULT 'pending',
+        ride_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (passenger_id) REFERENCES passengers (passenger_id),
+        FOREIGN KEY (driver_id) REFERENCES drivers (driver_id)
+    )
+    ''')
+    
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS support_tickets (
+        ticket_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        passenger_id INTEGER,
+        driver_id INTEGER,
+        ride_id INTEGER,
+        category TEXT NOT NULL,
+        description TEXT NOT NULL,
+        status TEXT DEFAULT 'open',
+        priority TEXT DEFAULT 'normal',
+        created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+        resolved_date DATETIME,
+        response TEXT,
+        FOREIGN KEY (passenger_id) REFERENCES passengers (passenger_id),
+        FOREIGN KEY (driver_id) REFERENCES drivers (driver_id),
+        FOREIGN KEY (ride_id) REFERENCES rides (ride_id)
+    )
+    ''')
+    
+    conn.commit()
+
+def add_passenger(conn, full_name, phone, email):
+    cursor = conn.cursor()
+    cursor.execute('''
+    INSERT INTO passengers (full_name, phone, email)
+    VALUES (?, ?, ?)
+    ''', (full_name, phone, email))
+    conn.commit()
+    print(f"Пассажир '{full_name}' добавлен")
+
+def get_passengers(conn):
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM passengers")
+    passengers = cursor.fetchall()
+    
+    if not passengers:
+        print("\nНет пассажиров в базе")
+        return passengers
+    
+    print("\n========== ПАССАЖИРЫ ==========")
+    for row in passengers:
+        print(f"ID: {row['passenger_id']}, Имя: {row['full_name']}, Телефон: {row['phone']}, Email: {row['email']}, Рейтинг: {row['rating']}")
+    return passengers
+
+def update_passenger(conn, passenger_id, full_name, phone, email, rating):
+    cursor = conn.cursor()
+    cursor.execute('''
+    UPDATE passengers
+    SET full_name = ?, phone = ?, email = ?, rating = ?
+    WHERE passenger_id = ?
+    ''', (full_name, phone, email, rating, passenger_id))
+    conn.commit()
+    print(f"Пассажир с ID {passenger_id} обновлен")
+
+def delete_passenger(conn, passenger_id):
+    cursor = conn.cursor()
+    cursor.execute('''
+    DELETE FROM passengers
+    WHERE passenger_id = ?
+    ''', (passenger_id,))
+    conn.commit()
+    print(f"Пассажир с ID {passenger_id} удален")
+
+def add_driver(conn, full_name, phone, email, car_model, car_number):
+    cursor = conn.cursor()
+    cursor.execute('''
+    INSERT INTO drivers (full_name, phone, email, car_model, car_number)
+    VALUES (?, ?, ?, ?, ?)
+    ''', (full_name, phone, email, car_model, car_number))
+    conn.commit()
+    print(f"Водитель '{full_name}' добавлен")
+
+def get_drivers(conn):
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM drivers")
+    drivers = cursor.fetchall()
+    
+    if not drivers:
+        print("\nНет водителей в базе")
+        return drivers
+    
+    print("\n========== ВОДИТЕЛИ ==========")
+    for row in drivers:
+        print(f"ID: {row['driver_id']}, Имя: {row['full_name']}, Телефон: {row['phone']}, Автомобиль: {row['car_model']}, Номер: {row['car_number']}")
+    return drivers
+
+def update_driver(conn, driver_id, full_name, phone, email, rating, car_model, car_number):
+    cursor = conn.cursor()
+    cursor.execute('''
+    UPDATE drivers
+    SET full_name = ?, phone = ?, email = ?, rating = ?, car_model = ?, car_number = ?
+    WHERE driver_id = ?
+    ''', (full_name, phone, email, rating, car_model, car_number, driver_id))
+    conn.commit()
+    print(f"Водитель с ID {driver_id} обновлен")
+
+def delete_driver(conn, driver_id):
+    cursor = conn.cursor()
+    cursor.execute('''
+    DELETE FROM drivers
+    WHERE driver_id = ?
+    ''', (driver_id,))
+    conn.commit()
+    print(f"Водитель с ID {driver_id} удален")
+
+def add_ride(conn, passenger_id, driver_id, pickup_location, dropoff_location, price, status='pending'):
+    cursor = conn.cursor()
+    cursor.execute('''
+    INSERT INTO rides (passenger_id, driver_id, pickup_location, dropoff_location, price, status)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ''', (passenger_id, driver_id, pickup_location, dropoff_location, price, status))
+    conn.commit()
+    print("Поездка добавлена")
+
+def get_rides(conn, ride_id=None):
+    cursor = conn.cursor()
+    
+    if ride_id:
+        cursor.execute('''
+        SELECT
+            rides.*,
+            passengers.full_name AS passenger_name,
+            drivers.full_name AS driver_name
+        FROM rides
+        LEFT JOIN passengers ON rides.passenger_id = passengers.passenger_id
+        LEFT JOIN drivers ON rides.driver_id = drivers.driver_id
+        WHERE rides.ride_id = ?
+        ''', (ride_id,))
+        
+        result = cursor.fetchone()
+        if result:
+            print(f"\nПоездка #{result['ride_id']}")
+            print(f"Пассажир: {result['passenger_name']}")
+            print(f"Водитель: {result['driver_name']}")
+            print(f"Откуда: {result['pickup_location']}")
+            print(f"Куда: {result['dropoff_location']}")
+            print(f"Цена: {result['price']} руб.")
+            print(f"Статус: {result['status']}")
+        else:
+            print(f"Поездка с ID {ride_id} не найдена")
+        return result
+    else:
+        cursor.execute('''
+        SELECT
+            rides.*,
+            passengers.full_name AS passenger_name,
+            drivers.full_name AS driver_name
+        FROM rides
+        LEFT JOIN passengers ON rides.passenger_id = passengers.passenger_id
+        LEFT JOIN drivers ON rides.driver_id = drivers.driver_id
         ''')
         
-        self.cursor.execute('''
-        CREATE TABLE IF NOT EXISTS drivers (
-            driver_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            full_name TEXT NOT NULL,
-            phone TEXT NOT NULL,
-            email TEXT,
-            rating REAL DEFAULT 5.0,
-            car_model TEXT,
-            car_number TEXT
-        )
+        rides = cursor.fetchall()
+        
+        if not rides:
+            print("\nНет поездок в базе")
+            return rides
+        
+        print("\n========== ПОЕЗДКИ ==========")
+        for row in rides:
+            print(f"ID: {row['ride_id']}, Пассажир: {row['passenger_name']}, Водитель: {row['driver_name']}, Цена: {row['price']} руб., Статус: {row['status']}")
+        return rides
+
+def update_ride_status(conn, ride_id, status):
+    cursor = conn.cursor()
+    cursor.execute('''
+    UPDATE rides
+    SET status = ?
+    WHERE ride_id = ?
+    ''', (status, ride_id))
+    conn.commit()
+    print(f"Статус поездки {ride_id} изменен на {status}")
+
+def delete_ride(conn, ride_id):
+    cursor = conn.cursor()
+    cursor.execute('''
+    DELETE FROM rides
+    WHERE ride_id = ?
+    ''', (ride_id,))
+    conn.commit()
+    print(f"Поездка {ride_id} удалена")
+
+def create_support_ticket(conn, passenger_id, driver_id, ride_id, category, description, priority='normal'):
+    cursor = conn.cursor()
+    
+    if passenger_id == '':
+        passenger_id = None
+    if driver_id == '':
+        driver_id = None
+    if ride_id == '':
+        ride_id = None
+        
+    cursor.execute('''
+    INSERT INTO support_tickets (passenger_id, driver_id, ride_id, category, description, priority, status)
+    VALUES (?, ?, ?, ?, ?, ?, 'open')
+    ''', (passenger_id, driver_id, ride_id, category, description, priority))
+    conn.commit()
+    
+    ticket_id = cursor.lastrowid
+    print(f"\nОбращение создано. Номер тикета: {ticket_id}")
+    return ticket_id
+
+def get_support_tickets(conn, status_filter=None):
+    cursor = conn.cursor()
+    
+    if status_filter:
+        cursor.execute('''
+        SELECT 
+            ticket_id,
+            category,
+            priority,
+            status,
+            passenger_id,
+            driver_id,
+            ride_id,
+            description,
+            response,
+            created_date
+        FROM support_tickets
+        WHERE status = ?
+        ORDER BY ticket_id DESC
+        ''', (status_filter,))
+    else:
+        cursor.execute('''
+        SELECT 
+            ticket_id,
+            category,
+            priority,
+            status,
+            passenger_id,
+            driver_id,
+            ride_id,
+            description,
+            response,
+            created_date
+        FROM support_tickets
+        ORDER BY ticket_id DESC
         ''')
+    
+    tickets = cursor.fetchall()
+    
+    if not tickets:
+        print("\n========== ОБРАЩЕНИЯ В ПОДДЕРЖКУ ==========")
+        if status_filter:
+            print(f"Нет обращений со статусом '{status_filter}'")
+        else:
+            print("Нет обращений")
+        return tickets
+    
+    print("\n========== ОБРАЩЕНИЯ В ПОДДЕРЖКУ ==========")
+    for ticket in tickets:
+        print(f"\nТикет #{ticket['ticket_id']}")
+        print(f"Категория: {ticket['category']}")
+        print(f"Приоритет: {ticket['priority']}")
+        print(f"Статус: {ticket['status']}")
         
-        self.cursor.execute('''
-        CREATE TABLE IF NOT EXISTS rides (
-            ride_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            passenger_id INTEGER,
-            driver_id INTEGER,
-            pickup_location TEXT,
-            dropoff_location TEXT,
-            price REAL,
-            status TEXT DEFAULT 'pending',
-            ride_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (passenger_id) REFERENCES passengers (passenger_id),
-            FOREIGN KEY (driver_id) REFERENCES drivers (driver_id)
-        )
-        ''')
+        if ticket['passenger_id']:
+            cursor.execute('SELECT full_name FROM passengers WHERE passenger_id = ?', (ticket['passenger_id'],))
+            passenger = cursor.fetchone()
+            if passenger:
+                print(f"Пассажир: {passenger['full_name']}")
+                
+        if ticket['driver_id']:
+            cursor.execute('SELECT full_name FROM drivers WHERE driver_id = ?', (ticket['driver_id'],))
+            driver = cursor.fetchone()
+            if driver:
+                print(f"Водитель: {driver['full_name']}")
+                
+        if ticket['ride_id']:
+            print(f"Поездка: #{ticket['ride_id']}")
+            
+        print(f"Описание: {ticket['description']}")
         
-        self.conn.commit()
+        if ticket['response']:
+            print(f"Ответ поддержки: {ticket['response']}")
+            
+        print(f"Дата создания: {ticket['created_date']}")
+        print("-" * 40)
     
-    def validate_email(self, email: str) -> bool:
-        pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        return re.match(pattern, email) is not None
-    
-    def validate_phone(self, phone: str) -> bool:
-        pattern = r'^[+]?[0-9]{10,15}$'
-        cleaned_phone = re.sub(r'[\s\-\(\)]', '', phone)
-        return re.match(pattern, cleaned_phone) is not None
-    
-    def validate_rating(self, rating: float) -> bool:
-        return 0.0 <= rating <= 5.0
-    
-    def add_passenger(self, full_name: str, phone: str, email: str) -> bool:
-        try:
-            if not self.validate_phone(phone):
-                print("Некорректный формат телефона!")
-                return False
-            
-            if email and not self.validate_email(email):
-                print("Некорректный формат email!")
-                return False
-            
-            self.cursor.execute('''
-            INSERT INTO passengers (full_name, phone, email)
-            VALUES (?, ?, ?)
-            ''', (full_name, phone, email))
-            self.conn.commit()
-            print(f"Пассажир '{full_name}' успешно добавлен!")
-            return True
-        except sqlite3.Error as e:
-            print(f"Ошибка при добавлении пассажира: {e}")
-            return False
-    
-    def get_passengers(self) -> List[Dict]:
-        try:
-            self.cursor.execute("SELECT * FROM passengers")
-            passengers = self.cursor.fetchall()
-            
-            if not passengers:
-                print("Список пассажиров пуст")
-                return []
-            
-            print("\n========== СПИСОК ПАССАЖИРОВ ==========")
-            for row in passengers:
-                print(f"ID: {row['passenger_id']}, Имя: {row['full_name']}, "
-                      f"Телефон: {row['phone']}, Email: {row['email']}, "
-                      f"Рейтинг: {row['rating']:.1f}")
-            return passengers
-        except sqlite3.Error as e:
-            print(f"Ошибка при получении пассажиров: {e}")
-            return []
-    
-    def update_passenger(self, passenger_id: int, full_name: str, phone: str, 
-                        email: str, rating: float) -> bool:
-        try:
-            if not self.validate_phone(phone):
-                print("Некорректный формат телефона!")
-                return False
-            
-            if email and not self.validate_email(email):
-                print("Некорректный формат email!")
-                return False
-            
-            if not self.validate_rating(rating):
-                print("Рейтинг должен быть от 0 до 5!")
-                return False
-            
-            self.cursor.execute('''
-            UPDATE passengers
-            SET full_name = ?, phone = ?, email = ?, rating = ?
-            WHERE passenger_id = ?
-            ''', (full_name, phone, email, rating, passenger_id))
-            
-            if self.cursor.rowcount == 0:
-                print(f"Пассажир с ID {passenger_id} не найден!")
-                return False
-            
-            self.conn.commit()
-            print(f"Данные пассажира с ID {passenger_id} успешно обновлены!")
-            return True
-        except sqlite3.Error as e:
-            print(f"Ошибка при обновлении пассажира: {e}")
-            return False
-    
-    def delete_passenger(self, passenger_id: int) -> bool:
-        try:
-            self.cursor.execute('''
-            DELETE FROM passengers
-            WHERE passenger_id = ?
-            ''', (passenger_id,))
-            
-            if self.cursor.rowcount == 0:
-                print(f"Пассажир с ID {passenger_id} не найден!")
-                return False
-            
-            self.conn.commit()
-            print(f"Пассажир с ID {passenger_id} успешно удален!")
-            return True
-        except sqlite3.Error as e:
-            print(f"Ошибка при удалении пассажира: {e}")
-            return False
-    
-    def add_driver(self, full_name: str, phone: str, email: str, 
-                  car_model: str, car_number: str) -> bool:
-        try:
-            if not self.validate_phone(phone):
-                print("Некорректный формат телефона!")
-                return False
-            
-            if email and not self.validate_email(email):
-                print("Некорректный формат email!")
-                return False
-            
-            self.cursor.execute('''
-            INSERT INTO drivers (full_name, phone, email, car_model, car_number)
-            VALUES (?, ?, ?, ?, ?)
-            ''', (full_name, phone, email, car_model, car_number))
-            self.conn.commit()
-            print(f"Водитель '{full_name}' успешно добавлен!")
-            return True
-        except sqlite3.Error as e:
-            print(f"Ошибка при добавлении водителя: {e}")
-            return False
-    
-    def get_drivers(self) -> List[Dict]:
-        try:
-            self.cursor.execute("SELECT * FROM drivers")
-            drivers = self.cursor.fetchall()
-            
-            if not drivers:
-                print("Список водителей пуст")
-                return []
-            
-            print("\n========== СПИСОК ВОДИТЕЛЕЙ ==========")
-            for row in drivers:
-                print(f"ID: {row['driver_id']}, Имя: {row['full_name']}, "
-                      f"Телефон: {row['phone']}, Email: {row['email']}, "
-                      f"Рейтинг: {row['rating']:.1f}, Автомобиль: {row['car_model']}, "
-                      f"Номер: {row['car_number']}")
-            return drivers
-        except sqlite3.Error as e:
-            print(f"Ошибка при получении водителей: {e}")
-            return []
-    
-    def update_driver(self, driver_id: int, full_name: str, phone: str, 
-                     email: str, rating: float, car_model: str, car_number: str) -> bool:
-        try:
-            if not self.validate_phone(phone):
-                print("Некорректный формат телефона!")
-                return False
-            
-            if email and not self.validate_email(email):
-                print("Некорректный формат email!")
-                return False
-            
-            if not self.validate_rating(rating):
-                print("Рейтинг должен быть от 0 до 5!")
-                return False
-            
-            self.cursor.execute('''
-            UPDATE drivers
-            SET full_name = ?, phone = ?, email = ?, rating = ?, 
-                car_model = ?, car_number = ?
-            WHERE driver_id = ?
-            ''', (full_name, phone, email, rating, car_model, car_number, driver_id))
-            
-            if self.cursor.rowcount == 0:
-                print(f"Водитель с ID {driver_id} не найден!")
-                return False
-            
-            self.conn.commit()
-            print(f"Данные водителя с ID {driver_id} успешно обновлены!")
-            return True
-        except sqlite3.Error as e:
-            print(f"Ошибка при обновлении водителя: {e}")
-            return False
-    
-    def delete_driver(self, driver_id: int) -> bool:
-        try:
-            self.cursor.execute('''
-            DELETE FROM drivers
-            WHERE driver_id = ?
-            ''', (driver_id,))
-            
-            if self.cursor.rowcount == 0:
-                print(f"Водитель с ID {driver_id} не найден!")
-                return False
-            
-            self.conn.commit()
-            print(f"Водитель с ID {driver_id} успешно удален!")
-            return True
-        except sqlite3.Error as e:
-            print(f"Ошибка при удалении водителя: {e}")
-            return False
-    
-    def add_ride(self, passenger_id: int, driver_id: int, pickup_location: str, 
-                 dropoff_location: str, price: float, status: str = 'pending') -> bool:
-        try:
-            if price < 0:
-                print("Цена не может быть отрицательной!")
-                return False
-            
-            if status not in ['pending', 'active', 'completed', 'cancelled']:
-                print("Некорректный статус поездки!")
-                return False
-            
-            self.cursor.execute('''
-            INSERT INTO rides (passenger_id, driver_id, pickup_location, 
-                             dropoff_location, price, status)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ''', (passenger_id, driver_id, pickup_location, dropoff_location, price, status))
-            self.conn.commit()
-            print(f"Поездка успешно добавлена!")
-            return True
-        except sqlite3.Error as e:
-            print(f"Ошибка при добавлении поездки: {e}")
-            return False
-    
-    def get_rides(self, ride_id: Optional[int] = None) -> List[Dict]:
-        try:
-            if ride_id:
-                self.cursor.execute('''
-                SELECT
-                    rides.*,
-                    passengers.full_name AS passenger_name,
-                    drivers.full_name AS driver_name
-                FROM rides
-                LEFT JOIN passengers ON rides.passenger_id = passengers.passenger_id
-                LEFT JOIN drivers ON rides.driver_id = drivers.driver_id
-                WHERE rides.ride_id = ?
-                ''', (ride_id,))
-                
-                result = self.cursor.fetchone()
-                if result:
-                    print(f"\n========== ПОЕЗДКА #{result['ride_id']} ==========")
-                    print(f"Пассажир: {result['passenger_name']}")
-                    print(f"Водитель: {result['driver_name']}")
-                    print(f"Откуда: {result['pickup_location']}")
-                    print(f"Куда: {result['dropoff_location']}")
-                    print(f"Цена: {result['price']} руб.")
-                    print(f"Статус: {result['status']}")
-                    print(f"Дата: {result['ride_date']}")
-                    return [result]
-                else:
-                    print(f"Поездка с ID {ride_id} не найдена!")
-                    return []
-            else:
-                self.cursor.execute('''
-                SELECT
-                    rides.*,
-                    passengers.full_name AS passenger_name,
-                    drivers.full_name AS driver_name
-                FROM rides
-                LEFT JOIN passengers ON rides.passenger_id = passengers.passenger_id
-                LEFT JOIN drivers ON rides.driver_id = drivers.driver_id
-                ''')
-                
-                rides = self.cursor.fetchall()
-                if not rides:
-                    print("Список поездок пуст")
-                    return []
-                
-                print("\n========== СПИСОК ПОЕЗДОК ==========")
-                for row in rides:
-                    print(f"ID: {row['ride_id']}, Пассажир: {row['passenger_name']}, "
-                          f"Водитель: {row['driver_name']}, Цена: {row['price']} руб., "
-                          f"Статус: {row['status']}")
-                return rides
-        except sqlite3.Error as e:
-            print(f"Ошибка при получении поездок: {e}")
-            return []
-    
-    def update_ride_status(self, ride_id: int, status: str) -> bool:
-        try:
-            if status not in ['pending', 'active', 'completed', 'cancelled']:
-                print("Некорректный статус поездки!")
-                return False
-            
-            self.cursor.execute('''
-            UPDATE rides
-            SET status = ?
-            WHERE ride_id = ?
-            ''', (status, ride_id))
-            
-            if self.cursor.rowcount == 0:
-                print(f"Поездка с ID {ride_id} не найдена!")
-                return False
-            
-            self.conn.commit()
-            print(f"Статус поездки с ID {ride_id} успешно обновлен!")
-            return True
-        except sqlite3.Error as e:
-            print(f"Ошибка при обновлении статуса поездки: {e}")
-            return False
-    
-    def delete_ride(self, ride_id: int) -> bool:
-        try:
-            self.cursor.execute('''
-            DELETE FROM rides
-            WHERE ride_id = ?
-            ''', (ride_id,))
-            
-            if self.cursor.rowcount == 0:
-                print(f"Поездка с ID {ride_id} не найдена!")
-                return False
-            
-            self.conn.commit()
-            print(f"Поездка с ID {ride_id} успешно удалена!")
-            return True
-        except sqlite3.Error as e:
-            print(f"Ошибка при удалении поездки: {e}")
-            return False
-    
-    def get_count_of_rides(self) -> int:
-        try:
-            self.cursor.execute("SELECT COUNT(*) FROM rides")
-            result = self.cursor.fetchone()[0]
-            print(f"\nОбщее количество поездок: {result}")
-            return result
-        except sqlite3.Error as e:
-            print(f"Ошибка при подсчете поездок: {e}")
-            return 0
-    
-    def get_count_of_complete_rides(self) -> int:
-        try:
-            self.cursor.execute("SELECT COUNT(*) FROM rides WHERE status = 'completed'")
-            result = self.cursor.fetchone()[0]
-            print(f"Количество завершенных поездок: {result}")
-            return result
-        except sqlite3.Error as e:
-            print(f"Ошибка при подсчете завершенных поездок: {e}")
-            return 0
-    
-    def get_profit(self) -> float:
-        try:
-            self.cursor.execute('''
-            SELECT SUM(price)
-            FROM rides
-            WHERE status = 'completed'
-            ''')
-            result = self.cursor.fetchone()[0]
-            if result is None:
-                result = 0
-            print(f"Общая выручка за завершенные поездки: {result:.2f} рублей")
-            return result
-        except sqlite3.Error as e:
-            print(f"Ошибка при подсчете выручки: {e}")
-            return 0.0
-    
-    def get_arithmetic_mean_of_profit(self) -> float:
-        try:
-            self.cursor.execute('SELECT AVG(price) FROM rides')
-            result = self.cursor.fetchone()[0]
-            if result is None:
-                result = 0
-            print(f"Средняя стоимость поездки: {result:.2f} рублей")
-            return result
-        except sqlite3.Error as e:
-            print(f"Ошибка при подсчете средней стоимости: {e}")
-            return 0.0
-    
-    def max_and_min_price(self) -> Dict:
-        try:
-            self.cursor.execute('''
-            SELECT
-                MIN(price) AS min_price,
-                MAX(price) AS max_price
-            FROM rides
-            ''')
-            result = self.cursor.fetchone()
-            
-            if result['min_price'] is None or result['max_price'] is None:
-                print("Нет данных о поездках")
-                return {'min_price': 0, 'max_price': 0}
-            
-            print(f"Минимальная стоимость: {result['min_price']} руб.")
-            print(f"Максимальная стоимость: {result['max_price']} руб.")
-            return dict(result)
-        except sqlite3.Error as e:
-            print(f"Ошибка при получении мин/макс цен: {e}")
-            return {'min_price': 0, 'max_price': 0}
-    
-    def price_for_passenger(self) -> List[Dict]:
-        try:
-            self.cursor.execute('''
-            SELECT
-                passengers.full_name,
-                COALESCE(SUM(rides.price), 0) AS priceofride
-            FROM passengers
-            LEFT JOIN rides ON passengers.passenger_id = rides.passenger_id
-            GROUP BY passengers.passenger_id
-            ORDER BY priceofride DESC
-            ''')
-            
-            results = self.cursor.fetchall()
-            print("\n========== ТРАТЫ ПАССАЖИРОВ ==========")
-            for result in results:
-                print(f"{result['full_name']}: {result['priceofride']:.2f} рублей")
-            
-            return results
-        except sqlite3.Error as e:
-            print(f"Ошибка при получении трат пассажиров: {e}")
-            return []
-    
-    def who_is_rich(self) -> List[Dict]:
-        try:
-            self.cursor.execute('''
-            SELECT 
-                passengers.full_name,
-                SUM(rides.price) AS priceofdrive
-            FROM rides
-            INNER JOIN passengers ON passengers.passenger_id = rides.passenger_id
-            GROUP BY passengers.passenger_id
-            HAVING SUM(rides.price) > 1000
-            ''')
-            
-            results = self.cursor.fetchall()
-            
-            if not results:
-                print("\nНет пассажиров, потративших более 1000 рублей")
-                return []
-            
-            print("\n========== VIP ПАССАЖИРЫ (траты > 1000 руб.) ==========")
-            for result in results:
-                print(f"Имя: {result['full_name']}, Потрачено: {result['priceofdrive']:.2f} руб.")
-            
-            return results
-        except sqlite3.Error as e:
-            print(f"Ошибка при получении VIP пассажиров: {e}")
-            return []
-    
-    def tariff(self) -> List[Dict]:
-        try:
-            self.cursor.execute('''
-            SELECT
-                price,
-                ride_id,
-                CASE
-                    WHEN price <= 400 THEN "Эконом"
-                    WHEN price > 400 AND price <= 1000 THEN "Комфорт"
-                    ELSE "Премиум"
-                END AS category
-            FROM rides
-            ORDER BY price
-            ''')
-            
-            results = self.cursor.fetchall()
-            
-            if not results:
-                print("Нет данных о поездках")
-                return []
-            
-            print("\n========== КАТЕГОРИИ ТАРИФОВ ==========")
-            for result in results:
-                print(f"Поездка #{result['ride_id']}: {result['price']} руб. - Тариф: {result['category']}")
-            
-            return results
-        except sqlite3.Error as e:
-            print(f"Ошибка при категоризации тарифов: {e}")
-            return []
-    
-    def close(self):
-        self.conn.close()
+    return tickets
 
+def respond_to_ticket(conn, ticket_id, response):
+    cursor = conn.cursor()
+    cursor.execute('''
+    UPDATE support_tickets
+    SET response = ?, status = 'in_progress'
+    WHERE ticket_id = ?
+    ''', (response, ticket_id))
+    conn.commit()
+    
+    if cursor.rowcount > 0:
+        print(f"Ответ на тикет #{ticket_id} добавлен")
+    else:
+        print(f"Тикет #{ticket_id} не найден")
 
-class TaxiApp:
-    def __init__(self):
-        self.db = TaxiDatabase()
+def close_ticket(conn, ticket_id):
+    cursor = conn.cursor()
+    cursor.execute('''
+    UPDATE support_tickets
+    SET status = 'closed', resolved_date = CURRENT_TIMESTAMP
+    WHERE ticket_id = ?
+    ''', (ticket_id,))
+    conn.commit()
     
-    def display_menu(self):
-        print("\n" + "="*50)
-        print("       СИСТЕМА УПРАВЛЕНИЯ ТАКСИ")
-        print("="*50)
-        print("\n--- УПРАВЛЕНИЕ ПАССАЖИРАМИ ---")
-        print("1.  Показать всех пассажиров")
-        print("2.  Добавить пассажира")
-        print("3.  Редактировать пассажира")
-        print("4.  Удалить пассажира")
-        
-        print("\n--- УПРАВЛЕНИЕ ВОДИТЕЛЯМИ ---")
-        print("5.  Показать всех водителей")
-        print("6.  Добавить водителя")
-        print("7.  Редактировать водителя")
-        print("8.  Удалить водителя")
-        
-        print("\n--- УПРАВЛЕНИЕ ПОЕЗДКАМИ ---")
-        print("9.  Показать все поездки")
-        print("10. Показать конкретную поездку")
-        print("11. Добавить поездку")
-        print("12. Изменить статус поездки")
-        print("13. Удалить поездку")
-        
-        print("\n--- СТАТИСТИКА И АНАЛИТИКА ---")
-        print("14. Общее количество поездок")
-        print("15. Количество завершенных поездок")
-        print("16. Общая выручка")
-        print("17. Средняя стоимость поездки")
-        print("18. Мин/Макс стоимость поездок")
-        print("19. Траты по пассажирам")
-        print("20. VIP пассажиры (траты > 1000)")
-        print("21. Категории тарифов")
-        
-        print("\n0. Выход")
-        print("="*50)
-    
-    def get_input(self, prompt: str, required: bool = True) -> str:
-        value = input(prompt).strip()
-        if required and not value:
-            print("Это поле обязательно для заполнения!")
-            return self.get_input(prompt, required)
-        return value
-    
-    def get_float_input(self, prompt: str) -> float:
-        while True:
-            try:
-                return float(input(prompt))
-            except ValueError:
-                print("Введите корректное число!")
-    
-    def get_int_input(self, prompt: str) -> int:
-        while True:
-            try:
-                return int(input(prompt))
-            except ValueError:
-                print("Введите корректное целое число!")
-    
-    def handle_add_passenger(self):
-        print("\n--- ДОБАВЛЕНИЕ ПАССАЖИРА ---")
-        full_name = self.get_input("Введите ФИО: ")
-        phone = self.get_input("Введите телефон: ")
-        email = self.get_input("Введите email (или нажмите Enter для пропуска): ", required=False)
-        
-        self.db.add_passenger(full_name, phone, email or None)
-    
-    def handle_update_passenger(self):
-        print("\n--- РЕДАКТИРОВАНИЕ ПАССАЖИРА ---")
-        self.db.get_passengers()
-        
-        passenger_id = self.get_int_input("\nВведите ID пассажира для редактирования: ")
-        full_name = self.get_input("Введите новое ФИО: ")
-        phone = self.get_input("Введите новый телефон: ")
-        email = self.get_input("Введите новый email (или нажмите Enter для пропуска): ", required=False)
-        rating = self.get_float_input("Введите новый рейтинг (0-5): ")
-        
-        self.db.update_passenger(passenger_id, full_name, phone, email or None, rating)
-    
-    def handle_delete_passenger(self):
-        print("\n--- УДАЛЕНИЕ ПАССАЖИРА ---")
-        self.db.get_passengers()
-        
-        passenger_id = self.get_int_input("\nВведите ID пассажира для удаления: ")
-        confirm = self.get_input(f"Вы уверены, что хотите удалить пассажира с ID {passenger_id}? (да/нет): ")
-        
-        if confirm.lower() in ['да', 'yes', 'y']:
-            self.db.delete_passenger(passenger_id)
-    
-    def handle_add_driver(self):
-        print("\n--- ДОБАВЛЕНИЕ ВОДИТЕЛЯ ---")
-        full_name = self.get_input("Введите ФИО: ")
-        phone = self.get_input("Введите телефон: ")
-        email = self.get_input("Введите email (или нажмите Enter для пропуска): ", required=False)
-        car_model = self.get_input("Введите модель автомобиля: ")
-        car_number = self.get_input("Введите номер автомобиля: ")
-        
-        self.db.add_driver(full_name, phone, email or None, car_model, car_number)
-    
-    def handle_update_driver(self):
-        print("\n--- РЕДАКТИРОВАНИЕ ВОДИТЕЛЯ ---")
-        self.db.get_drivers()
-        
-        driver_id = self.get_int_input("\nВведите ID водителя для редактирования: ")
-        full_name = self.get_input("Введите новое ФИО: ")
-        phone = self.get_input("Введите новый телефон: ")
-        email = self.get_input("Введите новый email (или нажмите Enter для пропуска): ", required=False)
-        rating = self.get_float_input("Введите новый рейтинг (0-5): ")
-        car_model = self.get_input("Введите новую модель автомобиля: ")
-        car_number = self.get_input("Введите новый номер автомобиля: ")
-        
-        self.db.update_driver(driver_id, full_name, phone, email or None, rating, car_model, car_number)
-    
-    def handle_delete_driver(self):
-        print("\n--- УДАЛЕНИЕ ВОДИТЕЛЯ ---")
-        self.db.get_drivers()
-        
-        driver_id = self.get_int_input("\nВведите ID водителя для удаления: ")
-        confirm = self.get_input(f"Вы уверены, что хотите удалить водителя с ID {driver_id}? (да/нет): ")
-        
-        if confirm.lower() in ['да', 'yes', 'y']:
-            self.db.delete_driver(driver_id)
-    
-    def handle_add_ride(self):
-        print("\n--- ДОБАВЛЕНИЕ ПОЕЗДКИ ---")
-        
-        print("\nДоступные пассажиры:")
-        self.db.get_passengers()
-        passenger_id = self.get_int_input("\nВведите ID пассажира: ")
-        
-        print("\nДоступные водители:")
-        self.db.get_drivers()
-        driver_id = self.get_int_input("\nВведите ID водителя: ")
-        
-        pickup_location = self.get_input("Введите адрес посадки: ")
-        dropoff_location = self.get_input("Введите адрес высадки: ")
-        price = self.get_float_input("Введите стоимость поездки: ")
-        
-        print("\nДоступные статусы: pending, active, completed, cancelled")
-        status = self.get_input("Введите статус (или нажмите Enter для 'pending'): ", required=False) or 'pending'
-        
-        self.db.add_ride(passenger_id, driver_id, pickup_location, dropoff_location, price, status)
-    
-    def handle_update_ride_status(self):
-        print("\n--- ИЗМЕНЕНИЕ СТАТУСА ПОЕЗДКИ ---")
-        self.db.get_rides()
-        
-        ride_id = self.get_int_input("\nВведите ID поездки: ")
-        print("\nДоступные статусы: pending, active, completed, cancelled")
-        status = self.get_input("Введите новый статус: ")
-        
-        self.db.update_ride_status(ride_id, status)
-    
-    def handle_delete_ride(self):
-        print("\n--- УДАЛЕНИЕ ПОЕЗДКИ ---")
-        self.db.get_rides()
-        
-        ride_id = self.get_int_input("\nВведите ID поездки для удаления: ")
-        confirm = self.get_input(f"Вы уверены, что хотите удалить поездку с ID {ride_id}? (да/нет): ")
-        
-        if confirm.lower() in ['да', 'yes', 'y']:
-            self.db.delete_ride(ride_id)
-    
-    def handle_show_specific_ride(self):
-        ride_id = self.get_int_input("Введите ID поездки: ")
-        self.db.get_rides(ride_id)
-    
-    def run(self):
-        print("\nДобро пожаловать в систему управления такси!")
-        
-        while True:
-            try:
-                self.display_menu()
-                choice = self.get_input("\nВыберите действие: ")
-                
-                if choice == '0':
-                    print("\nДо свидания!")
-                    self.db.close()
-                    break
-                
-                elif choice == '1':
-                    self.db.get_passengers()
-                elif choice == '2':
-                    self.handle_add_passenger()
-                elif choice == '3':
-                    self.handle_update_passenger()
-                elif choice == '4':
-                    self.handle_delete_passenger()
-                
-                elif choice == '5':
-                    self.db.get_drivers()
-                elif choice == '6':
-                    self.handle_add_driver()
-                elif choice == '7':
-                    self.handle_update_driver()
-                elif choice == '8':
-                    self.handle_delete_driver()
-                
-                elif choice == '9':
-                    self.db.get_rides()
-                elif choice == '10':
-                    self.handle_show_specific_ride()
-                elif choice == '11':
-                    self.handle_add_ride()
-                elif choice == '12':
-                    self.handle_update_ride_status()
-                elif choice == '13':
-                    self.handle_delete_ride()
-                
-                elif choice == '14':
-                    self.db.get_count_of_rides()
-                elif choice == '15':
-                    self.db.get_count_of_complete_rides()
-                elif choice == '16':
-                    self.db.get_profit()
-                elif choice == '17':
-                    self.db.get_arithmetic_mean_of_profit()
-                elif choice == '18':
-                    self.db.max_and_min_price()
-                elif choice == '19':
-                    self.db.price_for_passenger()
-                elif choice == '20':
-                    self.db.who_is_rich()
-                elif choice == '21':
-                    self.db.tariff()
-                
-                else:
-                    print("Неверный выбор! Попробуйте снова.")
-                
-                input("\nНажмите Enter для продолжения...")
-                
-            except KeyboardInterrupt:
-                print("\n\nПрограмма прервана пользователем. До свидания!")
-                self.db.close()
-                break
-            except Exception as e:
-                print(f"\nПроизошла ошибка: {e}")
-                input("\nНажмите Enter для продолжения...")
+    if cursor.rowcount > 0:
+        print(f"Тикет #{ticket_id} закрыт")
+    else:
+        print(f"Тикет #{ticket_id} не найден")
 
+def get_ticket_statistics(conn):
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT COUNT(*) FROM support_tickets")
+    total = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM support_tickets WHERE status = 'open'")
+    open_tickets = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM support_tickets WHERE status = 'in_progress'")
+    in_progress = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM support_tickets WHERE status = 'closed'")
+    closed = cursor.fetchone()[0]
+    
+    cursor.execute('''
+    SELECT category, COUNT(*) as count
+    FROM support_tickets
+    GROUP BY category
+    ORDER BY count DESC
+    ''')
+    categories = cursor.fetchall()
+    
+    print("\n========== СТАТИСТИКА ПОДДЕРЖКИ ==========")
+    print(f"Всего обращений: {total}")
+    print(f"Открытых: {open_tickets}")
+    print(f"В работе: {in_progress}")
+    print(f"Закрытых: {closed}")
+    
+    if categories:
+        print("\nПо категориям:")
+        for cat in categories:
+            print(f"  {cat['category']}: {cat['count']}")
+
+def get_count_of_rides(conn):
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM rides")
+    result = cursor.fetchone()[0]
+    print(f"\nКоличество поездок: {result}")
+    return result
+
+def get_count_of_complete_rides(conn):
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM rides WHERE status = 'completed'")
+    result = cursor.fetchone()[0]
+    print(f"\nКоличество завершенных поездок: {result}")
+    return result
+
+def get_profit(conn):
+    cursor = conn.cursor()
+    cursor.execute('''
+    SELECT SUM(price)
+    FROM rides
+    WHERE status = 'completed'
+    ''')
+    result = cursor.fetchone()[0]
+    if result is None:
+        result = 0
+    print(f"Общая выручка: {result} рублей")
+    return result
+
+def get_arithmetic_mean_of_profit(conn):
+    cursor = conn.cursor()
+    cursor.execute('SELECT AVG(price) FROM rides')
+    result = cursor.fetchone()[0]
+    if result is None:
+        result = 0
+    print(f"Средняя стоимость поездки: {result:.2f} рублей")
+    return result
+
+def max_and_min_price(conn):
+    cursor = conn.cursor()
+    cursor.execute('''
+    SELECT
+        MIN(price) AS min_price,
+        MAX(price) AS max_price
+    FROM rides
+    ''')
+    result = cursor.fetchone()
+    
+    if result['min_price'] is None:
+        print("Нет данных о поездках")
+    else:
+        print(f"Минимальная стоимость: {result['min_price']} руб.")
+        print(f"Максимальная стоимость: {result['max_price']} руб.")
+    return result
+
+def price_for_passenger(conn):
+    cursor = conn.cursor()
+    cursor.execute('''
+    SELECT
+        passengers.full_name,
+        SUM(rides.price) AS priceofride
+    FROM passengers
+    LEFT JOIN rides ON passengers.passenger_id = rides.passenger_id
+    GROUP BY passengers.passenger_id
+    ORDER BY priceofride DESC
+    ''')
+    
+    results = cursor.fetchall()
+    
+    if not results:
+        print("\nНет данных")
+        return
+    
+    print("\n========== ТРАТЫ ПАССАЖИРОВ ==========")
+    for result in results:
+        if result['priceofride']:
+            print(f"{result['full_name']}: {result['priceofride']} рублей")
+        else:
+            print(f"{result['full_name']}: 0 рублей")
+
+def who_is_rich(conn):
+    cursor = conn.cursor()
+    cursor.execute('''
+    SELECT 
+        passengers.full_name,
+        SUM(rides.price) AS priceofdrive
+    FROM rides
+    INNER JOIN passengers ON passengers.passenger_id = rides.passenger_id
+    GROUP BY passengers.passenger_id
+    HAVING SUM(rides.price) > 1000
+    ''')
+    
+    results = cursor.fetchall()
+    
+    if not results:
+        print("\nНет пассажиров с тратами более 1000 рублей")
+        return
+    
+    print("\n========== БОГАТЫЕ ПАССАЖИРЫ ==========")
+    for result in results:
+        print(f"Имя: {result['full_name']}, Потратил: {result['priceofdrive']} руб.")
+
+def tariff(conn):
+    cursor = conn.cursor()
+    cursor.execute('''
+    SELECT
+        price,
+        ride_id,
+        CASE
+            WHEN price <= 400 THEN "Эконом"
+            WHEN price > 400 AND price <= 1000 THEN "Комфорт"
+            ELSE "Премиум"
+        END AS category
+    FROM rides
+    ''')
+    
+    results = cursor.fetchall()
+    
+    if not results:
+        print("\nНет данных о поездках")
+        return
+    
+    print("\n========== ТАРИФЫ ==========")
+    for result in results:
+        print(f"Поездка #{result['ride_id']}: {result['price']} руб. - {result['category']}")
+
+def show_menu():
+    print("\n" + "="*50)
+    print("СИСТЕМА УПРАВЛЕНИЯ ТАКСИ")
+    print("="*50)
+    print("\n--- ПАССАЖИРЫ ---")
+    print("1. Показать пассажиров")
+    print("2. Добавить пассажира")
+    print("3. Изменить пассажира")
+    print("4. Удалить пассажира")
+    
+    print("\n--- ВОДИТЕЛИ ---")
+    print("5. Показать водителей")
+    print("6. Добавить водителя")
+    print("7. Изменить водителя")
+    print("8. Удалить водителя")
+    
+    print("\n--- ПОЕЗДКИ ---")
+    print("9. Показать поездки")
+    print("10. Показать конкретную поездку")
+    print("11. Добавить поездку")
+    print("12. Изменить статус поездки")
+    print("13. Удалить поездку")
+    
+    print("\n--- ПОДДЕРЖКА ---")
+    print("14. Создать обращение")
+    print("15. Показать все обращения")
+    print("16. Показать открытые обращения")
+    print("17. Ответить на обращение")
+    print("18. Закрыть обращение")
+    print("19. Статистика поддержки")
+    
+    print("\n--- СТАТИСТИКА ---")
+    print("20. Количество поездок")
+    print("21. Завершенные поездки")
+    print("22. Общая выручка")
+    print("23. Средняя стоимость")
+    print("24. Мин/Макс цены")
+    print("25. Траты пассажиров")
+    print("26. Богатые пассажиры")
+    print("27. Тарифы")
+    
+    print("\n0. Выход")
+    print("="*50)
 
 def main():
-    app = TaxiApp()
-    app.run()
-
+    conn = create_connection()
+    create_tables(conn)
+    
+    while True:
+        show_menu()
+        choice = input("\nВыберите действие: ")
+        
+        if choice == '0':
+            print("До свидания!")
+            break
+        
+        elif choice == '1':
+            get_passengers(conn)
+        
+        elif choice == '2':
+            full_name = input("ФИО: ")
+            phone = input("Телефон: ")
+            email = input("Email: ")
+            add_passenger(conn, full_name, phone, email)
+        
+        elif choice == '3':
+            get_passengers(conn)
+            try:
+                passenger_id = int(input("ID пассажира: "))
+                full_name = input("Новое ФИО: ")
+                phone = input("Новый телефон: ")
+                email = input("Новый email: ")
+                rating = float(input("Новый рейтинг: "))
+                update_passenger(conn, passenger_id, full_name, phone, email, rating)
+            except ValueError:
+                print("Неверный формат данных")
+        
+        elif choice == '4':
+            get_passengers(conn)
+            try:
+                passenger_id = int(input("ID для удаления: "))
+                delete_passenger(conn, passenger_id)
+            except ValueError:
+                print("Неверный ID")
+        
+        elif choice == '5':
+            get_drivers(conn)
+        
+        elif choice == '6':
+            full_name = input("ФИО: ")
+            phone = input("Телефон: ")
+            email = input("Email: ")
+            car_model = input("Модель авто: ")
+            car_number = input("Номер авто: ")
+            add_driver(conn, full_name, phone, email, car_model, car_number)
+        
+        elif choice == '7':
+            get_drivers(conn)
+            try:
+                driver_id = int(input("ID водителя: "))
+                full_name = input("Новое ФИО: ")
+                phone = input("Новый телефон: ")
+                email = input("Новый email: ")
+                rating = float(input("Новый рейтинг: "))
+                car_model = input("Новая модель авто: ")
+                car_number = input("Новый номер авто: ")
+                update_driver(conn, driver_id, full_name, phone, email, rating, car_model, car_number)
+            except ValueError:
+                print("Неверный формат данных")
+        
+        elif choice == '8':
+            get_drivers(conn)
+            try:
+                driver_id = int(input("ID для удаления: "))
+                delete_driver(conn, driver_id)
+            except ValueError:
+                print("Неверный ID")
+        
+        elif choice == '9':
+            get_rides(conn)
+        
+        elif choice == '10':
+            try:
+                ride_id = int(input("ID поездки: "))
+                get_rides(conn, ride_id)
+            except ValueError:
+                print("Неверный ID")
+        
+        elif choice == '11':
+            get_passengers(conn)
+            try:
+                passenger_id = int(input("ID пассажира: "))
+                get_drivers(conn)
+                driver_id = int(input("ID водителя: "))
+                pickup = input("Откуда: ")
+                dropoff = input("Куда: ")
+                price = float(input("Цена: "))
+                status = input("Статус (pending/active/completed/cancelled): ") or 'pending'
+                add_ride(conn, passenger_id, driver_id, pickup, dropoff, price, status)
+            except ValueError:
+                print("Неверный формат данных")
+        
+        elif choice == '12':
+            get_rides(conn)
+            try:
+                ride_id = int(input("ID поездки: "))
+                status = input("Новый статус (pending/active/completed/cancelled): ")
+                update_ride_status(conn, ride_id, status)
+            except ValueError:
+                print("Неверный ID")
+        
+        elif choice == '13':
+            get_rides(conn)
+            try:
+                ride_id = int(input("ID для удаления: "))
+                delete_ride(conn, ride_id)
+            except ValueError:
+                print("Неверный ID")
+        
+        elif choice == '14':
+            print("\n--- СОЗДАНИЕ ОБРАЩЕНИЯ ---")
+            print("От кого обращение?")
+            print("1. От пассажира")
+            print("2. От водителя")
+            print("3. Общее обращение")
+            sender_type = input("Выберите: ")
+            
+            passenger_id = None
+            driver_id = None
+            ride_id = None
+            
+            try:
+                if sender_type == '1':
+                    get_passengers(conn)
+                    passenger_id = input("ID пассажира (или Enter для пропуска): ")
+                    if passenger_id:
+                        passenger_id = int(passenger_id)
+                    else:
+                        passenger_id = None
+                        
+                elif sender_type == '2':
+                    get_drivers(conn)
+                    driver_id = input("ID водителя (или Enter для пропуска): ")
+                    if driver_id:
+                        driver_id = int(driver_id)
+                    else:
+                        driver_id = None
+                
+                related_to_ride = input("Связано с поездкой? (да/нет): ")
+                if related_to_ride.lower() in ['да', 'yes', 'y']:
+                    get_rides(conn)
+                    ride_id = input("ID поездки (или Enter для пропуска): ")
+                    if ride_id:
+                        ride_id = int(ride_id)
+                    else:
+                        ride_id = None
+                
+                print("\nКатегории: жалоба, вопрос, предложение, техническая_проблема, оплата, другое")
+                category = input("Категория обращения: ")
+                description = input("Описание проблемы: ")
+                print("Приоритет: low, normal, high")
+                priority = input("Приоритет (по умолчанию normal): ") or 'normal'
+                
+                create_support_ticket(conn, passenger_id, driver_id, ride_id, category, description, priority)
+            except ValueError:
+                print("Неверный формат данных")
+        
+        elif choice == '15':
+            get_support_tickets(conn)
+        
+        elif choice == '16':
+            get_support_tickets(conn, 'open')
+        
+        elif choice == '17':
+            get_support_tickets(conn, 'open')
+            try:
+                ticket_id = int(input("ID тикета для ответа: "))
+                response = input("Текст ответа: ")
+                respond_to_ticket(conn, ticket_id, response)
+            except ValueError:
+                print("Неверный ID")
+        
+        elif choice == '18':
+            get_support_tickets(conn, 'in_progress')
+            try:
+                ticket_id = int(input("ID тикета для закрытия: "))
+                close_ticket(conn, ticket_id)
+            except ValueError:
+                print("Неверный ID")
+        
+        elif choice == '19':
+            get_ticket_statistics(conn)
+        
+        elif choice == '20':
+            get_count_of_rides(conn)
+        
+        elif choice == '21':
+            get_count_of_complete_rides(conn)
+        
+        elif choice == '22':
+            get_profit(conn)
+        
+        elif choice == '23':
+            get_arithmetic_mean_of_profit(conn)
+        
+        elif choice == '24':
+            max_and_min_price(conn)
+        
+        elif choice == '25':
+            price_for_passenger(conn)
+        
+        elif choice == '26':
+            who_is_rich(conn)
+        
+        elif choice == '27':
+            tariff(conn)
+        
+        else:
+            print("Неверный выбор!")
+        
+        input("\nНажмите Enter...")
+    
+    conn.close()
 
 if __name__ == "__main__":
     main()

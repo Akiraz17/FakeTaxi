@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS drivers (
                email TEXT UNIQUE,
                rating REAL DEFAULT 5.0,
                balance REAL NOT NULL,
+               status TEXT DEFAULT 'waiting' CHECK(status IN ('working', 'waiting', 'pending')),
                car_model TEXT,
                car_number TEXT
 )
@@ -41,7 +42,9 @@ CREATE TABLE IF NOT EXISTS support (
                phone TEXT NOT NULL UNIQUE,
                email TEXT UNIQUE,
                status TEXT DEFAULT 'waiting' CHECK(status IN ('working', 'waiting', 'pending')),
-               balance REAL NOT NULL
+               balance REAL NOT NULL,
+               FOREIGN KEY (driver_id) REFERENCES drivers(driver_id) ON DELETE CASCADE,
+               FOREIGN KEY (passenger_id) REFERENCES passengers(passenger_id) ON DELETE CASCADE
 )
 ''')
 
@@ -51,16 +54,16 @@ CREATE TABLE IF NOT EXISTS rides (
                ride_id INTEGER PRIMARY KEY AUTOINCREMENT,
                passenger_id INTEGER NOT NULL,
                driver_id INTEGER NOT NULL,
+               support_id INTEGER, 
                start_point TEXT NOT NULL,
                end_point TEXT NOT NULL,
                price REAL NOT NULL,
                created_at TEXT DEFAULT (datetime('now','localtime')),
                completed_at TEXT,
                status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'in_progress', 'completed', 'cancelled')),
-               FOREIGN KEY (driver_id) REFERENCES drivers(driver_id),
-               FOREIGN KEY (passenger_id) REFERENCES passengers(passenger_id)
                FOREIGN KEY (driver_id) REFERENCES drivers(driver_id) ON DELETE CASCADE,
-               FOREIGN KEY (passenger_id) REFERENCES passengers(passenger_id) ON DELETE CASCADE
+               FOREIGN KEY (passenger_id) REFERENCES passengers(passenger_id) ON DELETE CASCADE,
+               FOREIGN KEY (support_id) REFERENCES support(support_id) ON DELETE CASCADE
 )
 ''')
 
